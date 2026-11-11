@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+1p&display=swap" rel="stylesheet">
+    <title>路線DNAコード解析センター</title>
+    <style>
+        .m-plus-1p-regular {
+            font-family: "M PLUS 1p", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+            }
+
+        :root {
+            --bg-color: #1a1a24;
+            --panel-bg: #252532;
+            --text-color: #ffffff;
+            --accent-color: #3b82f6;
+        }
+
+        body {
+            font-family: 'M PLUS 1p', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8888a0;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 15px;
+            border-radius: 8px;
+            border: 2px solid #3d3d54;
+            background: #151520;
+            color: white;
+            font-size: 18px;
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        button {
+            padding: 0 25px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .color-preview-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #1c1c28;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        .color-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .color-info-text {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .analysis-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 10px;
+        }
+
+        .route-row {
+            margin-bottom: 12px;
+        }
+
+        .route-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 12px;
+            background: #151520;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        .error-message {
+            color: #ef4444;
+            text-align: center;
+            font-size: 14px;
+            margin-top: -15px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>路線DNAコード解析センター</h1>
+    <div class="subtitle">タイピング結果のカラーコードからプレイスタイルを逆算します<br>パーセンテージが一番高い路線が最高スコアだった可能性が高いです。<br>ネタサイトとしてもおすすめです。</div>
+
+    <div class="input-group">
+        <input type="text" id="colorInput" placeholder="例: #6762B4 または 6762B4" maxlength="7">
+        <button onclick="analyzeDNA()">DNAを解析</button>
+    </div>
+
+    <div id="errorMsg" class="error-message">正しいカラーコードを入力してください。</div>
+
+    <div id="resultSection" class="result-section">
+        <div class="color-preview-box">
+            <div id="colorPreview" class="color-circle"></div>
+            <div>
+                <div class="color-info-text" id="hexLabel">#000000</div>
+                <div style="font-size: 12px; color: #888;">入力されたプレイスタイルの色</div>
+            </div>
+        </div>
+
+        <div class="analysis-title">検出された路線遺伝子（成分比率）</div>
+        <div id="chartContainer"></div>
+    </div>
+</div>
+
+<script>
+    // Unity側（MultiColorBlender）と全く同じ13の路線カラーの遺伝子データ（RGB値）
+    const masterRoutes = [
+        { id: 1, name: "銀座線", r: 228, g: 156, b: 50 },
+        { id: 2, name: "丸ノ内線", r: 210, g: 58,  b: 64 },
+        { id: 3, name: "日比谷線", r: 181, g: 181, b: 173 },
+        { id: 4, name: "東西線", r: 92,  g: 151, b: 188 },
+        { id: 5, name: "千代田線", r: 106, g: 188, b: 135 },
+        { id: 6, name: "有楽町線", r: 183, g: 167, b: 117 },
+        { id: 7, name: "半蔵門線", r: 140, g: 109, b: 210 },
+        { id: 8, name: "南北線", r: 99,  g: 172, b: 155 },
+        { id: 9, name: "副都心線", r: 140, g: 97,  b: 56 },
+        { id: 10, name: "都営浅草線", r: 207, g: 114, b: 106 },
+        { id: 11, name: "都営三田線", r: 67,  g: 98,  b: 180 },
+        { id: 12, name: "都営新宿線", r: 178, g: 195, b: 59 },
+        { id: 13, name: "都営大江戸線", r: 174, g: 18,  b: 93 }
+    ];
+
+    // 💡 【新機能】ページが読み込まれた時にURLを自動チェックする
+    window.onload = function() {
+        // URLの後ろの「?color=XXXXXX」の部分を取得する
+        const urlParams = new URLSearchParams(window.location.search);
+        const colorParam = urlParams.get('color');
+
+        if (colorParam) {
+            // もしURLにカラーコードが含まれていたら、自動で入力欄に入れて解析を実行
+            document.getElementById("colorInput").value = colorParam;
+            analyzeDNA();
+        }
+    }
+
+    function analyzeDNA() {
+        let input = document.getElementById("colorInput").value.trim();
+        const errorMsg = document.getElementById("errorMsg");
+        const resultSection = document.getElementById("resultSection");
+
+        if (input.startsWith("#")) {
+            input = input.substring(1);
+        }
+
+        const hexRegex = /^[0-9A-Fa-f]{6}$/;
+        if (!hexRegex.test(input)) {
+            errorMsg.style.display = "block";
+            resultSection.style.display = "none";
+            return;
+        }
+        errorMsg.style.display = "none";
+
+        const inputR = parseInt(input.substring(0, 2), 16);
+        const inputG = parseInt(input.substring(2, 4), 16);
+        const inputB = parseInt(input.substring(4, 6), 16);
+
+        let results = [];
+        let totalScore = 0;
+
+        masterRoutes.forEach(route => {
+            const r1 = Math.pow(inputR / 255, 2.2);
+            const g1 = Math.pow(inputG / 255, 2.2);
+            const b1 = Math.pow(inputB / 255, 2.2);
+
+            const r2 = Math.pow(route.r / 255, 2.2);
+            const g2 = Math.pow(route.g / 255, 2.2);
+            const b2 = Math.pow(route.b / 255, 2.2);
+
+            const distance = Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+
+            const baseWeight = 1.0 / (distance + 0.0001);
+            const biasedWeight = Math.pow(baseWeight, 3); // Unity完全同期補正（3乗）
+            
+            results.push({
+                name: route.name,
+                colorStr: `rgb(${route.r}, ${route.g}, ${route.b})`,
+                weight: biasedWeight
+            });
+            totalScore += biasedWeight;
+        });
+
+        results.forEach(res => {
+            res.percentage = (res.weight / totalScore) * 100;
+        });
+        results.sort((a, b) => b.percentage - a.percentage);
+
+        document.getElementById("hexLabel").innerText = "#" + input.toUpperCase();
+        document.getElementById("colorPreview").style.backgroundColor = "#" + input;
+
+        const chartContainer = document.getElementById("chartContainer");
+        chartContainer.innerHTML = "";
+
+        results.forEach(res => {
+            if (res.percentage < 1) return; 
+
+            const row = document.createElement("div");
+            row.className = "route-row";
+            row.innerHTML = `
+                <div class="route-info">
+                    <span>${res.name}</span>
+                    <strong>${res.percentage.toFixed(1)}%</strong>
+                </div>
+                <div class="bar-container">
+                    <div class="bar-fill" style="background-color: ${res.colorStr};"></div>
+                </div>
+            `;
+            chartContainer.appendChild(row);
+
+            setTimeout(() => {
+                row.querySelector(".bar-fill").style.width = res.percentage + "%";
+            }, 50);
+        });
+
+        // 💡 画面内にシェアボタンを表示させるための仕掛け（HTMLにボタンがなければ自動追加）
+        if (!document.getElementById("shareBtn")) {
+            const shareBtn = document.createElement("button");
+            shareBtn.id = "shareBtn";
+            shareBtn.className = "btn btn-share"; // 前回のCSSスタイルを適用
+            shareBtn.innerText = "この結果の直リンクをコピー";
+            shareBtn.style.width = "100%";
+            shareBtn.style.marginTop = "20px";
+            shareBtn.style.padding = "12px";
+            shareBtn.style.background = "#10b981";
+            shareBtn.style.color = "white";
+            shareBtn.style.border = "none";
+            shareBtn.style.borderRadius = "8px";
+            shareBtn.style.fontWeight = "bold";
+            shareBtn.style.cursor = "pointer";
+            shareBtn.onclick = copyShareLink;
+            resultSection.appendChild(shareBtn);
+        } else {
+            // すでにボタンがある場合は文字を初期状態に戻す
+            const shareBtn = document.getElementById("shareBtn");
+            shareBtn.innerText = "この結果の直リンクをコピー";
+            shareBtn.style.background = "#10b981";
+        }
+
+        resultSection.style.display = "block";
+    }
+
+    // 💡 【新機能】現在のカラーコードを入れた「直リンクURL」をクリップボードにコピーする
+    function copyShareLink() {
+        let input = document.getElementById("colorInput").value.trim();
+        if (input.startsWith("#")) {
+            input = input.substring(1);
+        }
+
+        // 現在開いているWEBサイトのURLのベースを取得し、パラメータをドッキング
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?color=${input.toUpperCase()}`;
+
+        // クリップボードへのコピー処理
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            const shareBtn = document.getElementById("shareBtn");
+            shareBtn.innerText = "直リンクをコピーしました！";
+            shareBtn.style.background = "#047857"; // 成功したら濃い緑色に変化
+            
+            // 2秒後に元の表記に戻す
+            setTimeout(() => {
+                shareBtn.innerText = "この結果の直リンクをコピー";
+                shareBtn.style.background = "#10b981";
+            }, 2000);
+        }).catch(err => {
+            alert("リンクのコピーに失敗しました: " + err);
+        });
+    }
+</script>
+
+</body>
+</html>
